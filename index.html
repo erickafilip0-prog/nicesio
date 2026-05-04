@@ -315,6 +315,42 @@ input[type=file]{display:none;}
 .search-result-title{font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px;}
 .no-data-msg{color:var(--muted);font-size:13px;text-align:center;padding:20px 0;}
 
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js";
+import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAabE1p2_RVZWp5pg1kfLEs2o-YIAQECRE",
+  authDomain: "flutter-ai-playground-399e7.firebaseapp.com",
+  projectId: "flutter-ai-playground-399e7",
+  storageBucket: "flutter-ai-playground-399e7.firebasestorage.app",
+  messagingSenderId: "609722410366",
+  appId: "1:609722410366:web:6209481c0fea9284a4ff2f"
+};
+
+const appFirebase = initializeApp(firebaseConfig);
+const storageFirebase = getStorage(appFirebase);
+const dbFirebase = getFirestore(appFirebase);
+
+window.salvarFotoFirebase = async function(file, lbl){
+  const nomeArquivo = `blackfit/fotos/${Date.now()}-${file.name}`;
+  const fotoRef = ref(storageFirebase, nomeArquivo);
+
+  await uploadBytes(fotoRef, file);
+  const url = await getDownloadURL(fotoRef);
+
+  await addDoc(collection(dbFirebase, "fotosTreino"), {
+    label: lbl,
+    url: url,
+    data: new Date().toLocaleDateString("pt-BR"),
+    criadoEm: new Date().toISOString()
+  });
+
+  return url;
+};
+</script>
+
 
 /* ===== BLACK FIT PRO: CINZA + NEON + NOTIFICAÇÕES ===== */
 :root{
@@ -1128,23 +1164,34 @@ function renderMeals(){
 }
 
 // ─── PHOTOS ─────────────────────────────────────────────
-function renderPhotos(){
-  const el=document.getElementById('photo-grid');
-  if(!el)return;
-  const slots=[...S.photos];
-  while(slots.length<6)slots.push(null);
-  el.innerHTML=slots.map((p,i)=>p
-    ?`<div class="photo-slot" onclick="if(confirm('Remover foto?')){S.photos.splice(${i},1);save();renderPhotos();}"><img src="${p.src}" alt="${p.lbl}"/></div>`
-    :`<div class="photo-slot"><span style="font-size:22px;color:var(--muted2);">+</span><div class="photo-slot-lbl">Vazio</div></div>`
-  ).join('');
-}
+async function handlePhoto(e){
+  const f = e.target.files[0];
+  if(!f) return;
 
-function handlePhoto(e){
-  const f=e.target.files[0];if(!f)return;
-  const lbl=document.getElementById('ph-lbl').value;
-  const r=new FileReader();
-  r.onload=ev=>{S.photos.push({src:ev.target.result,lbl,date:new Date().toLocaleDateString('pt-BR')});save();renderPhotos();};
-  r.readAsDataURL(f);e.target.value='';
+  const lbl = document.getElementById('ph-lbl').value;
+
+  try{
+    alert('Enviando foto...');
+
+    const url = await window.salvarFotoFirebase(f, lbl);
+
+    S.photos.push({
+      src: url,
+      lbl,
+      date: new Date().toLocaleDateString('pt-BR')
+    });
+
+    save();
+    renderPhotos();
+
+    alert('Foto salva no Firebase 🚀');
+
+  }catch(err){
+    console.error(err);
+    alert('Erro ao salvar foto');
+  }
+
+  e.target.value = '';
 }
 
 
